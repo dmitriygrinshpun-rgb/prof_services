@@ -3,6 +3,30 @@
 <head>
 <meta charset="UTF-8" />
 <title>Doodle Scheduler -- Outlook Prototype</title>
+<script>
+(function(){
+  var k='Doodle2026';
+  if(sessionStorage.getItem('dp_auth')!==k){
+    document.addEventListener('DOMContentLoaded',function(){
+      var o=document.getElementById('dp-gate');
+      if(o)o.style.display='flex';
+      document.body.style.overflow='hidden';
+    });
+  }
+})();
+function dpUnlock(){
+  var v=document.getElementById('dp-pw').value;
+  if(v==='Doodle2026'){
+    sessionStorage.setItem('dp_auth','Doodle2026');
+    document.getElementById('dp-gate').style.display='none';
+    document.body.style.overflow='';
+  }else{
+    document.getElementById('dp-err').style.display='block';
+    document.getElementById('dp-pw').value='';
+    document.getElementById('dp-pw').focus();
+  }
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -245,6 +269,20 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#F0F0F0;display:fle
 </style>
 </head>
 <body>
+<!-- Password gate -->
+<div id="dp-gate" style="display:none;position:fixed;inset:0;z-index:99999;background:#F0F0F0;align-items:center;justify-content:center;font-family:'Inter',-apple-system,sans-serif;">
+  <div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.12);padding:40px 36px;width:340px;text-align:center;">
+    <svg width="80" height="19" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:24px;"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg>
+    <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:6px;">Outlook Add-in Prototype</div>
+    <div style="font-size:13px;color:#888;margin-bottom:24px;">Enter the access password to continue</div>
+    <input id="dp-pw" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')dpUnlock()"
+      style="width:100%;border:1px solid #DFDFDF;border-radius:999px;padding:11px 18px;font-size:14px;font-family:inherit;outline:none;color:#111;margin-bottom:10px;text-align:center;letter-spacing:.1em;"
+      onfocus="this.style.borderColor='#111'" onblur="this.style.borderColor='#DFDFDF'"/>
+    <div id="dp-err" style="display:none;font-size:12px;color:#E74C3C;margin-bottom:10px;">Incorrect password. Try again.</div>
+    <button onclick="dpUnlock()" style="width:100%;background:#111;color:#fff;border:none;border-radius:999px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Enter</button>
+  </div>
+</div>
+
 <div class="proto-label">Doodle Outlook Add-in -- Interactive Prototype</div>
 
 <!-- ======= OUTLOOK ======= -->
