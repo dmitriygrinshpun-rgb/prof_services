@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Doodle Scheduler -- Outlook Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',-apple-system,sans-serif;background:#F0F0F0;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;gap:24px;flex-wrap:wrap;padding:36px 20px 60px;-webkit-font-smoothing:antialiased;}
+/* Outlook */
+.outlook-frame{width:1020px;height:760px;background:#fff;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;}
+.outlook-titlebar{height:36px;background:#2b579a;display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;}
+.outlook-titlebar span{color:#fff;font-size:12px;font-weight:500;opacity:.9;}
+.window-dots{display:flex;gap:6px;margin-left:auto;}
+.window-dot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.35);}
+.outlook-ribbon{height:58px;background:#f5f5f5;border-bottom:1px solid #d0d0d0;display:flex;align-items:center;padding:0 16px;gap:4px;flex-shrink:0;}
+.ribbon-tab{padding:6px 12px;font-size:12px;color:#555;cursor:pointer;border-radius:4px;}
+.ribbon-tab.active{background:#fff;border:1px solid #d0d0d0;font-weight:600;color:#2b579a;}
+.ribbon-doodle-btn{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 14px;cursor:pointer;border-radius:6px;border:none;background:transparent;font-family:inherit;transition:background .15s;}
+.ribbon-doodle-btn:hover{background:#ebebeb;}
+.ribbon-doodle-btn span{font-size:10px;color:#555;font-weight:500;}
+.compose-area{flex:1;display:flex;overflow:hidden;}
+.compose-body{flex:1;padding:22px;display:flex;flex-direction:column;gap:12px;border-right:1px solid #EBEBEB;overflow-y:auto;background:#fff;}
+.compose-field{display:flex;align-items:center;gap:10px;border-bottom:1px solid #EBEBEB;padding-bottom:10px;}
+.compose-field label{font-size:12px;color:#999;width:48px;flex-shrink:0;}
+.compose-field input{flex:1;border:none;outline:none;font-size:13px;font-family:inherit;color:#111;}
+.compose-email-body{flex:1;font-size:13px;color:#333;line-height:1.7;outline:none;}
+/* Task pane */
+.taskpane{width:0;flex-shrink:0;background:#fff;display:flex;flex-direction:column;overflow:hidden;position:relative;transition:width .3s ease;border-left:1px solid #EBEBEB;}
+.pane-screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:18px 16px;gap:14px;overflow-y:auto;transition:opacity .22s,transform .22s;opacity:0;pointer-events:none;transform:translateX(16px);}
+.pane-screen.active{opacity:1;pointer-events:all;transform:translateX(0);}
+.pane-screen.out{opacity:0;transform:translateX(-16px);}
+.pane-header{display:flex;align-items:center;gap:8px;padding-bottom:14px;border-bottom:1px solid #EBEBEB;}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:6px;}
+/* Mode toggle */
+.mode-toggle{display:flex;background:#F3F3F1;border:1px solid #E5E5E5;border-radius:10px;padding:3px;gap:2px;position:relative;}
+.mode-btn{flex:1;border:none;background:transparent;color:#888;font-family:inherit;font-size:12px;font-weight:500;padding:8px 4px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;position:relative;z-index:1;transition:color .2s;}
+.mode-btn.active{color:#fff;}
+.mode-slider{position:absolute;top:3px;bottom:3px;border-radius:7px;background:#111;transition:all .25s cubic-bezier(.4,0,.2,1);z-index:0;}
+.mode-slider.booking{left:3px;width:calc(50% - 4px);}
+.mode-slider.poll{left:calc(50% + 1px);width:calc(50% - 4px);}
+.mode-badge{font-size:9px;font-weight:700;background:rgba(255,255,255,.2);color:#fff;border-radius:4px;padding:1px 4px;}
+.mode-btn:not(.active) .mode-badge{background:#ddd;color:#666;}
+.mode-hint{background:#F3F3F1;border:1px solid #E5E5E5;border-radius:8px;padding:9px 11px;font-size:11px;color:#666;display:flex;align-items:flex-start;gap:7px;line-height:1.5;}
+.mode-hint.hidden{display:none;}
+/* chips */
+.recipient-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{display:flex;align-items:center;gap:6px;background:#F3F3F1;border:1px solid #E5E5E5;border-radius:999px;padding:4px 10px 4px 5px;font-size:12px;color:#333;}
+.chip-avatar{width:20px;height:20px;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;}
+/* duration */
+.duration-group{display:flex;gap:6px;}
+.dur-btn{flex:1;background:#fff;border:1px solid #E5E5E5;border-radius:6px;padding:8px 4px;color:#888;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;}
+.dur-btn.active{border-color:#111;background:#111;color:#fff;font-weight:600;}
+.dur-btn:hover:not(.active){border-color:#aaa;color:#333;}
+/* availability */
+.avail-section{display:flex;flex-direction:column;gap:0;}
+.dur-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.dur-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid #E5E5E5;border-radius:999px;padding:5px 10px 5px 12px;font-size:13px;font-weight:500;color:#111;background:#fff;}
+.dur-pill-x{width:16px;height:16px;border-radius:50%;background:#E5E5E5;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;color:#666;transition:background .15s;}
+.repeat-select{width:100%;border:1px solid #E5E5E5;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;color:#111;background:#fff;appearance:none;cursor:pointer;margin-bottom:14px;outline:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%23999' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+.day-row{padding:10px 0;border-bottom:1px solid #F0F0F0;}
+.day-row:last-of-type{border-bottom:none;}
+.day-header-row{display:flex;align-items:center;gap:10px;min-height:28px;}
+.day-cb{width:20px;height:20px;border-radius:5px;border:1.5px solid #DFDFDF;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s;background:#fff;}
+.day-cb.checked{background:#111;border-color:#111;}
+.day-cb svg{display:none;}
+.day-cb.checked svg{display:block;}
+.day-name{font-size:13px;font-weight:600;color:#111;width:34px;flex-shrink:0;}
+.day-unavailable{font-size:13px;color:#bbb;flex:1;}
+.day-add{margin-left:auto;width:24px;height:24px;border:1px solid #E5E5E5;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#888;flex-shrink:0;transition:all .15s;line-height:1;}
+.day-add:hover{border-color:#111;color:#111;}
+.day-slots{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-left:30px;}
+.time-range{display:flex;align-items:center;gap:6px;}
+.time-input{display:flex;align-items:center;gap:5px;border:1px solid #E5E5E5;border-radius:8px;padding:7px 10px;background:#fff;flex:1;transition:border-color .15s;}
+.time-input:focus-within{border-color:#111;}
+.time-input input{border:none;outline:none;font-size:13px;font-family:inherit;color:#111;width:38px;font-weight:500;}
+.time-input svg{color:#aaa;flex-shrink:0;}
+.time-arrow{font-size:14px;color:#bbb;flex-shrink:0;}
+.slot-actions{display:flex;align-items:center;gap:8px;padding-left:30px;margin-top:4px;}
+.slot-action-btn{width:24px;height:24px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#aaa;border-radius:4px;transition:all .15s;}
+.slot-action-btn:hover{color:#111;background:#F3F3F1;}
+.tz-row{display:flex;align-items:center;justify-content:space-between;border:1px solid #E5E5E5;border-radius:8px;padding:9px 12px;background:#fff;cursor:pointer;margin-top:2px;font-size:13px;color:#111;}
+.tz-right{display:flex;align-items:center;gap:6px;color:#888;font-size:12px;}
+/* Poll grid */
+.poll-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.poll-cal-nav{display:flex;align-items:center;gap:6px;}
+.poll-cal-nav button{width:24px;height:24px;border:1px solid #E5E5E5;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#555;transition:all .15s;line-height:1;}
+.poll-cal-nav button:hover{border-color:#111;color:#111;}
+.poll-cal-month{font-size:12px;font-weight:600;color:#111;}
+.poll-grid{display:grid;grid-template-columns:32px repeat(5,1fr);border:1px solid #E5E5E5;border-radius:10px;overflow:hidden;user-select:none;}
+.pg-corner{background:#F9F9F9;border-bottom:1px solid #E5E5E5;border-right:1px solid #E5E5E5;}
+.pg-day-hdr{text-align:center;padding:6px 2px 5px;background:#F9F9F9;border-bottom:1px solid #E5E5E5;border-right:1px solid #E5E5E5;font-size:10px;font-weight:600;color:#666;line-height:1.3;}
+.pg-day-hdr:last-child{border-right:none;}
+.pg-day-hdr.today .pg-date{background:#111;color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;}
+.pg-time{font-size:9px;color:#bbb;text-align:right;padding:0 4px 0 0;display:flex;align-items:flex-start;justify-content:flex-end;border-bottom:1px solid #F0F0F0;border-right:1px solid #E5E5E5;padding-top:2px;height:22px;}
+.pg-time.hour{color:#999;font-weight:500;border-bottom-color:#E5E5E5;}
+.pg-cell{height:22px;border-right:1px solid #F0F0F0;border-bottom:1px solid #F0F0F0;cursor:pointer;transition:background .08s;}
+.pg-cell:last-child{border-right:none;}
+.pg-cell.hour-border{border-bottom-color:#E5E5E5;}
+.pg-cell:hover{background:#F0F0F0;}
+.pg-cell.selected{background:#111;}
+.pg-cell.selected:hover{background:#333;}
+.poll-cal-hint{font-size:11px;color:#999;text-align:center;margin-top:6px;}
+.poll-cal-hint strong{color:#111;}
+/* CTAs */
+.pane-cta{width:100%;border:none;border-radius:999px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;background:#111;color:#fff;transition:background .15s;margin-top:auto;}
+.pane-cta:hover{background:#333;}
+.pane-cta:disabled{opacity:.3;cursor:not-allowed;}
+.pane-secondary{background:transparent;color:#888;border:1px solid #E5E5E5;border-radius:999px;padding:10px;font-size:12px;cursor:pointer;width:100%;font-family:inherit;transition:border-color .15s;}
+.pane-secondary:hover{border-color:#111;color:#111;}
+/* Auth */
+#screen-auth{align-items:center;justify-content:center;text-align:center;gap:20px;}
+.auth-icon{width:56px;height:56px;background:#111;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto;}
+.auth-title{font-size:16px;font-weight:700;color:#111;}
+.auth-sub{font-size:12px;color:#888;line-height:1.5;margin-top:4px;}
+.msft-btn{background:#0078d4;color:#fff;border:none;border-radius:999px;padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;width:100%;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;}
+.divider{display:flex;align-items:center;gap:10px;width:100%;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#EBEBEB;}
+.divider span{font-size:11px;color:#aaa;}
+.email-btn{background:#fff;color:#555;border:1px solid #E5E5E5;border-radius:999px;padding:10px 16px;font-size:13px;cursor:pointer;width:100%;font-family:inherit;transition:border-color .15s;}
+.email-btn:hover{border-color:#111;color:#111;}
+/* Generating/done */
+#screen-generating{align-items:center;justify-content:center;gap:14px;}
+.spinner{width:36px;height:36px;border:2.5px solid #EBEBEB;border-top-color:#111;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#screen-done{align-items:center;justify-content:center;gap:12px;text-align:center;}
+.done-check{width:56px;height:56px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;animation:pop .3s cubic-bezier(.34,1.56,.64,1);color:#fff;font-size:22px;font-weight:700;}
+@keyframes pop{from{transform:scale(.5);opacity:0;}}
+.done-link{background:#F3F3F1;border:1px solid #EBEBEB;border-radius:8px;padding:9px 12px;font-size:11px;color:#888;word-break:break-all;width:100%;text-align:left;}
+/* ===================== DOODLE RIGHT PANEL ===================== */
+.booking-frame{width:820px;background:#F5F5F5;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.09);overflow:hidden;display:none;flex-direction:row;color:#111;min-height:680px;}
+.booking-frame.visible{display:flex;}
+/* Doodle sidebar nav */
+.doodle-sidebar{width:176px;background:#fff;border-right:1px solid #EBEBEB;display:flex;flex-direction:column;padding:16px 0;flex-shrink:0;}
+.ds-logo{padding:0 16px 14px;}
+.ds-create{margin:0 10px 14px;background:#111;color:#fff;border:none;border-radius:999px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;transition:background .15s;}
+.ds-create:hover{background:#333;}
+.ds-nav-item{display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:13px;color:#555;cursor:pointer;transition:background .15s;border-radius:6px;margin:0 6px 1px;}
+.ds-nav-item:hover{background:#F5F5F5;}
+.ds-nav-item.active{background:#F0F0F0;color:#111;font-weight:600;}
+.ds-nav-icon{width:16px;height:16px;flex-shrink:0;opacity:.5;}
+.ds-nav-item.active .ds-nav-icon{opacity:1;}
+.ds-profile{margin-top:auto;padding:12px 14px 0;display:flex;align-items:center;gap:8px;border-top:1px solid #EBEBEB;}
+.ds-avatar{width:28px;height:28px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.ds-profile-name{font-size:12px;font-weight:600;color:#111;}
+/* main content */
+.doodle-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.doodle-topbar{background:#fff;border-bottom:1px solid #EBEBEB;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.dt-date{display:flex;align-items:center;gap:8px;}
+.dt-day-num{width:32px;height:32px;border-radius:8px;border:1px solid #EBEBEB;background:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#111;}
+.dt-date-text{font-size:12px;color:#555;line-height:1.3;}
+.dt-date-text strong{color:#111;display:block;}
+.dt-spacer{flex:1;}
+.dt-pill{display:flex;align-items:center;gap:5px;border:1px solid #E5E5E5;border-radius:999px;padding:5px 10px;font-size:12px;color:#555;background:#fff;cursor:pointer;}
+/* Group poll list */
+.doodle-content{flex:1;overflow-y:auto;padding:20px;}
+.dc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.dc-title{font-size:18px;font-weight:700;color:#111;}
+.add-poll-btn{background:#111;color:#fff;border:none;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;}
+.add-poll-btn:hover{background:#333;}
+.dc-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid #EBEBEB;}
+.dc-tab{padding:8px 14px;font-size:12px;font-weight:500;color:#888;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+.dc-tab.active{color:#111;font-weight:600;border-bottom-color:#111;}
+.dc-tab:hover:not(.active){color:#555;}
+/* Poll card - matches Figma Group polls list */
+.poll-card{background:#fff;border:1px solid #EBEBEB;border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:box-shadow .15s;}
+.poll-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.pc-row1{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+/* Toggle */
+.pc-toggle{position:relative;width:34px;height:20px;flex-shrink:0;cursor:pointer;}
+.pc-toggle-track{width:34px;height:20px;border-radius:10px;background:#DFDFDF;transition:background .2s;}
+.pc-toggle.on .pc-toggle-track{background:#111;}
+.pc-toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s;}
+.pc-toggle.on .pc-toggle-thumb{transform:translateX(14px);}
+.pc-status-label{font-size:11px;font-weight:600;color:#888;}
+.pc-toggle.on + .pc-status-label{color:#111;}
+.pc-title{font-size:14px;font-weight:600;color:#111;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-menu-btn{width:24px;height:24px;border-radius:6px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#bbb;flex-shrink:0;font-size:16px;letter-spacing:1px;}
+.pc-menu-btn:hover{background:#F3F3F1;color:#555;}
+.pc-meta{font-size:11px;color:#888;margin-bottom:10px;padding-left:44px;}
+.pc-actions{display:flex;gap:6px;padding-left:44px;flex-wrap:wrap;}
+.pc-action{font-size:11px;font-weight:500;color:#555;border:1px solid #E5E5E5;border-radius:999px;padding:4px 10px;cursor:pointer;background:#fff;transition:all .15s;display:flex;align-items:center;gap:4px;}
+.pc-action:hover{border-color:#111;color:#111;}
+.pc-action.primary{background:#111;color:#fff;border-color:#111;}
+.pc-action.primary:hover{background:#333;}
+/* Poll results grid */
+.prv-header{background:#fff;border-bottom:1px solid #EBEBEB;padding:14px 20px;flex-shrink:0;}
+.prv-back{display:flex;align-items:center;gap:6px;font-size:12px;color:#888;cursor:pointer;margin-bottom:8px;}
+.prv-back:hover{color:#111;}
+.prv-title{font-size:16px;font-weight:700;color:#111;margin-bottom:4px;}
+.prv-meta{font-size:11px;color:#888;display:flex;gap:12px;}
+.prv-body{flex:1;overflow:auto;padding:16px 20px;}
+.prv-legend{display:flex;gap:14px;margin-top:12px;}
+.prv-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#666;}
+.prv-legend-dot{width:12px;height:12px;border-radius:2px;}
+.prv-schedule-btn{background:#111;color:#fff;border:none;border-radius:999px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;width:100%;margin-top:16px;transition:background .15s;}
+.prv-schedule-btn:hover{background:#333;}
+.prv-schedule-btn:disabled{opacity:.3;cursor:not-allowed;}
+.prv-confirmed{display:none;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:40px 24px;}
+.prv-confirmed.visible{display:flex;}
+.prv-confirmed-icon{width:64px;height:64px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;animation:pop .4s cubic-bezier(.34,1.56,.64,1);}
+.prv-confirmed-title{font-size:20px;font-weight:700;color:#111;}
+.prv-confirmed-sub{font-size:13px;color:#666;line-height:1.6;}
+.prv-confirmed-slot{background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;color:#111;width:100%;}
+/* 1:1 booking */
+.bp-simple{flex:1;display:flex;flex-direction:column;background:#F5F5F5;overflow:hidden;}
+.bp-simple-header{background:#fff;border-bottom:1px solid #EBEBEB;padding:18px 20px;}
+.bp-org-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.bp-avatar{width:36px;height:36px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.bp-org-name{font-size:13px;font-weight:600;color:#111;}
+.bp-org-label{font-size:11px;color:#999;}
+.bp-title{font-size:18px;font-weight:700;color:#111;margin-bottom:8px;}
+.bp-badges{display:flex;gap:6px;}
+.bp-badge{display:inline-flex;align-items:center;gap:5px;background:#F3F3F1;border:1px solid #E5E5E5;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:500;color:#444;}
+.bp-body{padding:16px 20px;flex:1;overflow-y:auto;}
+.bp-section{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:10px;}
+.bp-slot{background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:13px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s,box-shadow .15s;}
+.bp-slot:hover{border-color:#bbb;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.bp-slot.selected{border-color:#111;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.bp-radio{width:20px;height:20px;border-radius:50%;border:1.5px solid #DFDFDF;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.bp-slot.selected .bp-radio{border-color:#111;background:#111;}
+.bp-radio-dot{width:7px;height:7px;border-radius:50%;background:#fff;display:none;}
+.bp-slot.selected .bp-radio-dot{display:block;}
+.bp-slot-day{font-size:14px;font-weight:600;color:#111;}
+.bp-slot-time{font-size:12px;color:#888;margin-top:2px;}
+.bp-fields{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.bp-field{display:flex;flex-direction:column;gap:4px;}
+.bp-field label{font-size:11px;font-weight:600;color:#666;padding-left:4px;}
+.bp-field input{border:1px solid #DFDFDF;border-radius:999px;padding:9px 16px;font-size:13px;font-family:inherit;outline:none;background:#fff;color:#111;transition:border-color .15s;}
+.bp-field input:focus{border-color:#111;}
+.bp-footer{padding:12px 20px 20px;background:#fff;border-top:1px solid #EBEBEB;flex-shrink:0;}
+.bp-cta{width:100%;border:none;border-radius:999px;padding:12px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:#111;color:#fff;transition:background .15s;}
+.bp-cta:hover{background:#333;}
+.bp-cta:disabled{opacity:.3;cursor:not-allowed;}
+.bp-powered{text-align:center;margin-top:8px;font-size:11px;color:#bbb;}
+.bp-confirmed{display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;gap:14px;flex:1;}
+.bp-confirmed.visible{display:flex;}
+.bp-confirmed-icon{width:72px;height:72px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff;animation:pop .4s cubic-bezier(.34,1.56,.64,1);}
+.bp-confirmed-title{font-size:20px;font-weight:700;color:#111;}
+.bp-confirmed-sub{font-size:13px;color:#666;line-height:1.6;}
+.bp-confirmed-slot{background:#fff;border:1px solid #EBEBEB;border-radius:14px;padding:12px 18px;font-size:14px;font-weight:600;color:#111;width:100%;}
+.proto-label{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:600;padding:5px 16px;border-radius:999px;backdrop-filter:blur(8px);letter-spacing:.04em;pointer-events:none;}
+.pane-screen::-webkit-scrollbar,.doodle-content::-webkit-scrollbar{width:4px;}
+.pane-screen::-webkit-scrollbar-thumb,.doodle-content::-webkit-scrollbar-thumb{background:#E5E5E5;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="proto-label">Doodle Outlook Add-in -- Interactive Prototype</div>
+
+<!-- ======= OUTLOOK ======= -->
+<div class="outlook-frame">
+  <div class="outlook-titlebar">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect width="16" height="16" rx="3" fill="#fff" opacity=".9"/><text x="3" y="12" font-size="11" font-weight="700" fill="#2b579a" font-family="Arial">O</text></svg>
+    <span>New Message -- Outlook</span>
+    <div class="window-dots"><div class="window-dot"></div><div class="window-dot"></div><div class="window-dot"></div></div>
+  </div>
+  <div class="outlook-ribbon">
+    <div class="ribbon-tab active">Message</div>
+    <div class="ribbon-tab">Insert</div>
+    <div class="ribbon-tab">Options</div>
+    <button class="ribbon-doodle-btn" onclick="openPane()"><svg width="80" height="19" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M78.7308 86.9419C83.3506 86.9419 87.0962 83.1964 87.0962 78.5765C87.0962 73.9567 83.3494 70.2112 78.7308 70.2112H78.7295C78.4339 70.2175 78.3281 70.2137H77.9445C77.8209 70.2188 77.5876 70.2328C77.3621 70.2519 77.0562 70.2889C76.8969 70.3131 76.6 70.3679C76.4432 70.401 76.1526 70.4775C75.834 70.5731 75.2299 70.791C74.5558 71.116C73.7758 71.5875C73.475 71.7927C73.0354 72.119C72.0719 72.8633 70.3616 74.6908C69.7155 75.3471C68.4538 72.3293 65.4729 70.2086 61.9975 70.2086C57.3776 70.2086 53.6321 73.9542 53.6321 78.574C53.6321 83.1938 57.3789 86.9394 61.9975 86.9394C62.9724 86.9292 63.5191 86.8833C64.4265 86.7151C65.0319 86.5316 65.845 86.2053C66.17 86.0345C66.6976 85.73C67.6904 85.0303C68.6538 84.286 70.3641 82.4585C71.0103 81.8021C72.2732 84.8187 75.2529 86.9381 78.7308 86.9381V86.9419ZM66.7792 78.4058C64.8051 80.4181 55.0097 81.4249 55.0097 78.5791C55.0097 74.5506 62.822 70.9886 69.5064 75.5676C68.5901 76.5145 67.6815 77.4844 66.7792 78.407V78.4058ZM71.2193 81.5906C73.9466 78.7511C75.9207 76.7363C81.9832 73.8739C84.2924 74.4104 85.716 75.7295 85.716 78.5753C85.716 82.6038 81.9335 86.1658 71.2193 81.588V81.5906Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg><span>Schedule</span></button>
+  </div>
+  <div class="compose-area">
+    <div class="compose-body">
+      <div class="compose-field"><label>To</label><input value="sarah@acmecorp.com, james.k@partner.io" /></div>
+      <div class="compose-field"><label>Subject</label><input value="Q3 Partnership Kickoff" /></div>
+      <div class="compose-email-body" id="email-body" contenteditable="true">Hi Sarah and James,<br><br>Great connecting at the conference. I would love to set up a call to explore the partnership opportunity we discussed.<br><br>Please use the link below to find a time -- no account needed.<br><br></div>
+    </div>
+    <div class="taskpane" id="taskpane">
+      <!-- AUTH -->
+      <div class="pane-screen active" id="screen-auth">
+        <div class="pane-header"><svg width="80" height="19" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M78.7308 86.9419C83.3506 86.9419 87.0962 83.1964 87.0962 78.5765C87.0962 73.9567 83.3494 70.2112 78.7308 70.2112H78.7295C78.4339 70.2175 78.3281 70.2137H77.9445C77.8209 70.2188 77.5876 70.2328C77.3621 70.2519 77.0562 70.2889C76.8969 70.3131 76.6 70.3679C76.4432 70.401 76.1526 70.4775C75.834 70.5731 75.2299 70.791C74.5558 71.116C73.7758 71.5875C73.475 71.7927C73.0354 72.119C72.0719 72.8633 70.3616 74.6908C69.7155 75.3471C68.4538 72.3293 65.4729 70.2086 61.9975 70.2086C57.3776 70.2086 53.6321 73.9542 53.6321 78.574C53.6321 83.1938 57.3789 86.9394 61.9975 86.9394C62.9724 86.9292 63.5191 86.8833C64.4265 86.7151C65.0319 86.5316 65.845 86.2053C66.17 86.0345C66.6976 85.73C67.6904 85.0303C68.6538 84.286 70.3641 82.4585C71.0103 81.8021C72.2732 84.8187 75.2529 86.9381 78.7308 86.9381V86.9419ZM66.7792 78.4058C64.8051 80.4181 55.0097 81.4249 55.0097 78.5791C55.0097 74.5506 62.822 70.9886 69.5064 75.5676C68.5901 76.5145 67.6815 77.4844 66.7792 78.407V78.4058ZM71.2193 81.5906C73.9466 78.7511C75.9207 76.7363C81.9832 73.8739C84.2924 74.4104 85.716 75.7295 85.716 78.5753C85.716 82.6038 81.9335 86.1658 71.2193 81.588V81.5906Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg></div>
+        <div class="auth-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#fff"/><ellipse cx="9" cy="16" rx="4" ry="4.5" fill="#111"/><ellipse cx="9" cy="16" rx="1.8" ry="2" fill="#fff"/><ellipse cx="19" cy="16" rx="4" ry="4.5" fill="#111"/><ellipse cx="19" cy="16" rx="1.8" ry="2" fill="#fff"/></svg></div>
+        <div><div class="auth-title">Schedule with Doodle</div><div class="auth-sub">Sign in to insert a scheduling link -- no account needed for recipients.</div></div>
+        <button class="msft-btn" onclick="goTo('screen-scheduler')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect width="16" height="16" rx="2" fill="#fff"/><text x="2.5" y="12" font-size="11" font-weight="700" fill="#2b579a" font-family="Arial">M</text></svg>Sign in with Microsoft</button>
+        <div class="divider"><span>or</span></div>
+        <button class="email-btn" onclick="goTo('screen-scheduler')">Sign in with email</button>
+        <div style="font-size:11px;color:#aaa;margin-top:auto;padding-top:8px;border-top:1px solid #EBEBEB;">Click either to continue prototype</div>
+      </div>
+      <!-- SCHEDULER -->
+      <div class="pane-screen" id="screen-scheduler">
+        <div class="pane-header"><svg width="80" height="19" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M78.7308 86.9419C83.3506 86.9419 87.0962 83.1964 87.0962 78.5765C87.0962 73.9567 83.3494 70.2112 78.7308 70.2112H78.7295C78.4339 70.2175 78.3281 70.2137H77.9445C77.8209 70.2188 77.5876 70.2328C77.3621 70.2519 77.0562 70.2889C76.8969 70.3131 76.6 70.3679C76.4432 70.401 76.1526 70.4775C75.834 70.5731 75.2299 70.791C74.5558 71.116C73.7758 71.5875C73.475 71.7927C73.0354 72.119C72.0719 72.8633 70.3616 74.6908C69.7155 75.3471C68.4538 72.3293 65.4729 70.2086 61.9975 70.2086C57.3776 70.2086 53.6321 73.9542 53.6321 78.574C53.6321 83.1938 57.3789 86.9394 61.9975 86.9394C62.9724 86.9292 63.5191 86.8833C64.4265 86.7151C65.0319 86.5316 65.845 86.2053C66.17 86.0345C66.6976 85.73C67.6904 85.0303C68.6538 84.286 70.3641 82.4585C71.0103 81.8021C72.2732 84.8187 75.2529 86.9381 78.7308 86.9381V86.9419ZM66.7792 78.4058C64.8051 80.4181 55.0097 81.4249 55.0097 78.5791C55.0097 74.5506 62.822 70.9886 69.5064 75.5676C68.5901 76.5145 67.6815 77.4844 66.7792 78.407V78.4058ZM71.2193 81.5906C73.9466 78.7511C75.9207 76.7363C81.9832 73.8739C84.2924 74.4104 85.716 75.7295 85.716 78.5753C85.716 82.6038 81.9335 86.1658 71.2193 81.588V81.5906Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg><button onclick="closePane()" style="margin-left:auto;background:none;border:none;color:#bbb;cursor:pointer;font-size:20px;line-height:1;">&times;</button></div>
+        <div>
+          <div class="section-label">Meeting type</div>
+          <div class="mode-toggle">
+            <div class="mode-slider booking" id="mode-slider"></div>
+            <button class="mode-btn active" id="btn-booking" onclick="setMode('booking')">1:1 Booking</button>
+            <button class="mode-btn" id="btn-poll" onclick="setMode('poll')">Group Poll <span class="mode-badge">2</span></button>
+          </div>
+          <div class="mode-hint hidden" id="poll-hint" style="margin-top:8px;"><span>Everyone votes on their available times. You confirm the winner.</span></div>
+        </div>
+        <div>
+          <div class="section-label">Scheduling with</div>
+          <div class="recipient-chips">
+            <div class="chip"><div class="chip-avatar">SJ</div>Sarah Johnson</div>
+            <div class="chip"><div class="chip-avatar">JK</div>James Kim</div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">Duration</div>
+          <div class="duration-group">
+            <button class="dur-btn" onclick="setDur(this)">15 min</button>
+            <button class="dur-btn active" onclick="setDur(this)">30 min</button>
+            <button class="dur-btn" onclick="setDur(this)">45 min</button>
+            <button class="dur-btn" onclick="setDur(this)">60 min</button>
+          </div>
+        </div>
+        <!-- BOOKING availability -->
+        <div id="avail-booking">
+          <div class="avail-section">
+            <div class="section-label">Your availability</div>
+            <div class="dur-pills"><div class="dur-pill">30 min <span class="dur-pill-x">&times;</span></div></div>
+            <select class="repeat-select"><option>Repeat weekly</option><option>Don't repeat</option></select>
+            <div id="days-container"></div>
+            <div class="tz-row" style="margin-top:10px;"><span>Europe/Berlin</span><div class="tz-right"><span>(GMT+2)</span><svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 7L11 1" stroke="#999" stroke-width="1.5" stroke-linecap="round"/></svg></div></div>
+          </div>
+        </div>
+        <!-- POLL grid -->
+        <div id="avail-poll" style="display:none;">
+          <div class="poll-cal-header">
+            <div class="section-label" style="margin-bottom:0;">Propose time slots</div>
+            <div class="poll-cal-nav">
+              <button onclick="prevWeek()">&lsaquo;</button>
+              <span class="poll-cal-month" id="poll-cal-month">Jun 2026</span>
+              <button onclick="nextWeek()">&rsaquo;</button>
+            </div>
+          </div>
+          <div class="poll-grid" id="poll-grid"></div>
+          <div class="poll-cal-hint" id="poll-cal-hint">Click and drag to select times</div>
+        </div>
+        <button class="pane-cta" id="insert-btn" onclick="insertLink()" disabled>Insert scheduling link</button>
+      </div>
+      <!-- GENERATING -->
+      <div class="pane-screen" id="screen-generating">
+        <div class="spinner"></div>
+        <div style="font-size:15px;font-weight:600;color:#111;text-align:center;" id="gen-title">Creating your link...</div>
+        <div style="font-size:12px;color:#aaa;text-align:center;">Just a second</div>
+      </div>
+      <!-- DONE -->
+      <div class="pane-screen" id="screen-done">
+        <div class="pane-header"><svg width="80" height="19" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M78.7308 86.9419C83.3506 86.9419 87.0962 83.1964 87.0962 78.5765C87.0962 73.9567 83.3494 70.2112 78.7308 70.2112H78.7295C78.4339 70.2175 78.3281 70.2137H77.9445C77.8209 70.2188 77.5876 70.2328C77.3621 70.2519 77.0562 70.2889C76.8969 70.3131 76.6 70.3679C76.4432 70.401 76.1526 70.4775C75.834 70.5731 75.2299 70.791C74.5558 71.116C73.7758 71.5875C73.475 71.7927C73.0354 72.119C72.0719 72.8633 70.3616 74.6908C69.7155 75.3471C68.4538 72.3293 65.4729 70.2086 61.9975 70.2086C57.3776 70.2086 53.6321 73.9542 53.6321 78.574C53.6321 83.1938 57.3789 86.9394 61.9975 86.9394C62.9724 86.9292 63.5191 86.8833C64.4265 86.7151C65.0319 86.5316 65.845 86.2053C66.17 86.0345C66.6976 85.73C67.6904 85.0303C68.6538 84.286 70.3641 82.4585C71.0103 81.8021C72.2732 84.8187 75.2529 86.9381 78.7308 86.9381V86.9419ZM66.7792 78.4058C64.8051 80.4181 55.0097 81.4249 55.0097 78.5791C55.0097 74.5506 62.822 70.9886 69.5064 75.5676C68.5901 76.5145 67.6815 77.4844 66.7792 78.407V78.4058ZM71.2193 81.5906C73.9466 78.7511C75.9207 76.7363C81.9832 73.8739C84.2924 74.4104 85.716 75.7295 85.716 78.5753C85.716 82.6038 81.9335 86.1658 71.2193 81.588V81.5906Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg></div>
+        <div class="done-check">&#10003;</div>
+        <div style="font-size:15px;font-weight:700;color:#111;text-align:center;" id="done-title">Link added to your email</div>
+        <div style="font-size:12px;color:#888;line-height:1.5;text-align:center;" id="done-sub">Sarah and James can pick a time.</div>
+        <div class="done-link" id="done-link">doodle.com/bp/dmytro/q3-kickoff</div>
+        <button class="pane-secondary" onclick="goTo('screen-scheduler')">Change</button>
+        <button class="pane-cta" onclick="closePane()" style="background:#F3F3F1;color:#333;border:1px solid #E5E5E5;margin-top:0;">Close panel</button>
+        <div style="font-size:11px;color:#bbb;margin-top:auto;padding-top:8px;border-top:1px solid #EBEBEB;">Doodle panel shown on the right &rarr;</div>
+      </div>
+
+      <!-- SCREEN: organizer waiting for responses (shown inside plugin after participant votes) -->
+      <div class="pane-screen" id="screen-waiting">
+        <div class="pane-header">
+          <svg width="80" height="19" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg>
+        </div>
+
+        <!-- Poll title -->
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#111;">Q3 Partnership Kickoff</div>
+          <div style="font-size:12px;color:#888;margin-top:3px;">Group poll &bull; 30 min</div>
+        </div>
+
+        <!-- Progress bar -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+            <div style="font-size:12px;font-weight:600;color:#111;">Responses</div>
+            <div style="font-size:12px;font-weight:700;color:#111;" id="pane-resp-count">1 of 2</div>
+          </div>
+          <div style="height:6px;background:#EBEBEB;border-radius:6px;overflow:hidden;">
+            <div id="pane-resp-bar" style="height:6px;background:#111;border-radius:6px;width:0%;transition:width 1s ease;"></div>
+          </div>
+          <div style="font-size:11px;color:#888;margin-top:5px;">Waiting for 1 more response</div>
+        </div>
+
+        <!-- Participant list -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <!-- Sarah - responded -->
+          <div style="display:flex;align-items:center;gap:10px;background:#F9F9F9;border:1px solid #EBEBEB;border-radius:10px;padding:10px 12px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;">SJ</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Sarah Johnson</div>
+              <div style="font-size:10px;color:#888;">Responded just now</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;background:#F0FFF4;border:1px solid #C3E6CB;border-radius:999px;padding:3px 8px;flex-shrink:0;">
+              <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.2 6L8 1" stroke="#27AE60" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="font-size:10px;font-weight:600;color:#27AE60;">Done</span>
+            </div>
+          </div>
+          <!-- James - pending -->
+          <div style="display:flex;align-items:center;gap:10px;background:#F9F9F9;border:1px solid #EBEBEB;border-radius:10px;padding:10px 12px;opacity:.55;">
+            <div style="width:28px;height:28px;border-radius:50%;background:#999;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;">JK</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">James Kim</div>
+              <div style="font-size:10px;color:#888;">Invite sent</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;background:#FFF8F0;border:1px solid #F5D5A8;border-radius:999px;padding:3px 8px;flex-shrink:0;">
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><circle cx="4.5" cy="4.5" r="3.5" stroke="#E67E22" stroke-width="1.3"/><path d="M4.5 2.5v2.5" stroke="#E67E22" stroke-width="1.3" stroke-linecap="round"/><circle cx="4.5" cy="6.5" r=".4" fill="#E67E22"/></svg>
+              <span style="font-size:10px;font-weight:600;color:#E67E22;">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sarah's selected slots summary -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:7px;">Sarah's availability</div>
+          <div id="pane-sarah-slots" style="display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
+
+        <!-- Schedule button (disabled until all respond) -->
+        <div style="margin-top:auto;">
+          <button disabled style="width:100%;border:none;border-radius:999px;padding:12px;font-size:13px;font-weight:600;cursor:not-allowed;font-family:inherit;background:#111;color:#fff;opacity:.25;margin-bottom:6px;">Schedule instantly</button>
+          <div style="font-size:10px;color:#aaa;text-align:center;">Available once all participants respond</div>
+          <div style="font-size:10px;color:#bbb;text-align:center;margin-top:4px;">James gets a reminder in 24h</div>
+        </div>
+      </div>
+
+    </div><!-- /taskpane -->
+  </div>
+</div><!-- /outlook -->
+
+<!-- ======= PARTICIPANT EXPERIENCE (what recipient sees after clicking the link) ======= -->
+<div class="booking-frame" id="booking-frame">
+  <!-- Hidden sidebar placeholder removed: RIGHT PANEL = participant view only -->
+  <div class="doodle-sidebar" style="display:none;">
+    <div class="ds-logo"><svg width="64" height="15" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M78.7308 86.9419C83.3506 86.9419 87.0962 83.1964 87.0962 78.5765C87.0962 73.9567 83.3494 70.2112 78.7308 70.2112H78.7295C78.4339 70.2175 78.3281 70.2137H77.9445C77.8209 70.2188 77.5876 70.2328C77.3621 70.2519 77.0562 70.2889C76.8969 70.3131 76.6 70.3679C76.4432 70.401 76.1526 70.4775C75.834 70.5731 75.2299 70.791C74.5558 71.116C73.7758 71.5875C73.475 71.7927C73.0354 72.119C72.0719 72.8633 70.3616 74.6908C69.7155 75.3471C68.4538 72.3293 65.4729 70.2086 61.9975 70.2086C57.3776 70.2086 53.6321 73.9542 53.6321 78.574C53.6321 83.1938 57.3789 86.9394 61.9975 86.9394C62.9724 86.9292 63.5191 86.8833C64.4265 86.7151C65.0319 86.5316 65.845 86.2053C66.17 86.0345C66.6976 85.73C67.6904 85.0303C68.6538 84.286 70.3641 82.4585C71.0103 81.8021C72.2732 84.8187 75.2529 86.9381 78.7308 86.9381V86.9419ZM66.7792 78.4058C64.8051 80.4181 55.0097 81.4249 55.0097 78.5791C55.0097 74.5506 62.822 70.9886 69.5064 75.5676C68.5901 76.5145 67.6815 77.4844 66.7792 78.407V78.4058ZM71.2193 81.5906C73.9466 78.7511C75.9207 76.7363C81.9832 73.8739C84.2924 74.4104 85.716 75.7295 85.716 78.5753C85.716 82.6038 81.9335 86.1658 71.2193 81.588V81.5906Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg></div>
+    <button class="ds-create">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>Create
+    </button>
+    <div class="ds-nav-item"><svg class="ds-nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>Dashboard</div>
+    <div class="ds-nav-item"><svg class="ds-nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>My doodles</div>
+    <div class="ds-nav-item"><svg class="ds-nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.4"/><path d="M5 3V2M11 3V2M2 7h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Booking pages</div>
+    <div class="ds-nav-item active"><svg class="ds-nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="5" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.21 1.79-4 4-4s4 1.79 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Group polls</div>
+    <div class="ds-nav-item"><svg class="ds-nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.6L14 5.3l-3 2.9.7 4.1L8 10.1 4.3 12.3l.7-4.1L2 5.3l4.2-.7L8 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Team planning</div>
+    <div class="ds-profile"><div class="ds-avatar">DG</div><div class="ds-profile-name">Dmytro</div></div>
+  </div>
+
+  <div class="doodle-main" id="doodle-main">
+
+    <!-- ===== GROUP POLL: participant voting page ===== -->
+    <div id="poll-participant-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;background:#F5F5F5;">
+      <!-- Header -->
+      <div style="background:#fff;border-bottom:1px solid #EBEBEB;padding:18px 24px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">DG</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#111;">Dmytro Grinshpun</div>
+            <div style="font-size:11px;color:#999;">wants to find a time to meet</div>
+          </div>
+          <div style="margin-left:auto;"><svg width="64" height="15" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg></div>
+        </div>
+        <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:8px;">Q3 Partnership Kickoff</div>
+        <div style="display:flex;gap:6px;">
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#F3F3F1;border:1px solid #E5E5E5;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:500;color:#444;">30 min</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#F3F3F1;border:1px solid #E5E5E5;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:500;color:#444;">Also invited: James Kim</span>
+        </div>
+      </div>
+      <!-- Body: slot checkboxes -->
+      <div id="poll-vote-body" style="flex:1;overflow-y:auto;padding:20px 24px;">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:12px;">Which times work for you? Select all that do.</div>
+        <div id="poll-slots-list"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:#666;padding-left:4px;">Your name</label>
+            <input id="pv-name" placeholder="Sarah Johnson" oninput="updatePollVoteCta()" style="border:1px solid #DFDFDF;border-radius:999px;padding:9px 16px;font-size:13px;font-family:inherit;outline:none;background:#fff;color:#111;transition:border-color .15s;" onfocus="this.style.borderColor='#111'" onblur="this.style.borderColor='#DFDFDF'"/>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:#666;padding-left:4px;">Your email</label>
+            <input id="pv-email" placeholder="sarah@acmecorp.com" oninput="updatePollVoteCta()" style="border:1px solid #DFDFDF;border-radius:999px;padding:9px 16px;font-size:13px;font-family:inherit;outline:none;background:#fff;color:#111;transition:border-color .15s;" onfocus="this.style.borderColor='#111'" onblur="this.style.borderColor='#DFDFDF'"/>
+          </div>
+        </div>
+      </div>
+      <!-- Footer -->
+      <div id="poll-vote-footer" style="padding:12px 24px 20px;background:#fff;border-top:1px solid #EBEBEB;flex-shrink:0;">
+        <button id="pv-cta" onclick="submitPollVote()" disabled style="width:100%;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:#111;color:#fff;transition:background .15s;opacity:.3;">Submit availability</button>
+        <div style="text-align:center;margin-top:8px;font-size:11px;color:#bbb;">Powered by <strong style="color:#111;">Doodle</strong> &middot; No account needed</div>
+      </div>
+      <!-- Submitted: participant thank-you (briefly shown) -->
+      <div id="poll-vote-confirmed" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;gap:14px;flex:1;">
+        <div style="width:64px;height:64px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;animation:pop .4s cubic-bezier(.34,1.56,.64,1);">&#10003;</div>
+        <div style="font-size:20px;font-weight:700;color:#111;">Thanks, Sarah!</div>
+        <div style="font-size:13px;color:#666;line-height:1.6;">Your availability has been submitted.</div>
+        <div style="background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:12px 18px;font-size:13px;color:#555;width:100%;text-align:left;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:6px;">You said yes to</div>
+          <div id="pv-confirmed-slots" style="font-size:13px;font-weight:600;color:#111;"></div>
+        </div>
+      </div>
+
+      <!-- Organizer waiting state (shown after participant submits) -->
+      <div id="organizer-waiting" style="display:none;flex-direction:column;background:#fff;flex:1;overflow:hidden;">
+        <!-- Header matches Figma "Booking flow" poll card style -->
+        <div style="padding:18px 24px;border-bottom:1px solid #EBEBEB;flex-shrink:0;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:10px;">Organizer view &mdash; Q3 Partnership Kickoff</div>
+          <!-- Toggle + title row (matches Figma poll card) -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+            <div style="position:relative;width:34px;height:20px;flex-shrink:0;">
+              <div style="width:34px;height:20px;border-radius:10px;background:#111;"></div>
+              <div style="position:absolute;top:2px;left:16px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);"></div>
+            </div>
+            <span style="font-size:11px;font-weight:600;color:#111;">Open</span>
+            <span style="font-size:14px;font-weight:600;color:#111;flex:1;">Q3 Partnership Kickoff</span>
+          </div>
+          <div style="font-size:11px;color:#888;padding-left:44px;">2 of 2 participants invited &bull; 30 min</div>
+        </div>
+
+        <!-- Progress section -->
+        <div style="padding:20px 24px;flex:1;overflow-y:auto;">
+
+          <!-- Response progress bar -->
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-size:13px;font-weight:600;color:#111;">Responses</div>
+              <div style="font-size:12px;font-weight:600;color:#111;">1 of 2</div>
+            </div>
+            <div style="height:6px;background:#EBEBEB;border-radius:6px;overflow:hidden;">
+              <div id="resp-bar" style="height:6px;background:#111;border-radius:6px;width:0%;transition:width 1s ease;"></div>
+            </div>
+            <div style="font-size:11px;color:#888;margin-top:6px;">Waiting for 1 more response before you can schedule</div>
+          </div>
+
+          <!-- Participant avatars with status -->
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+            <!-- Sarah - responded -->
+            <div style="display:flex;align-items:center;gap:12px;background:#F9F9F9;border:1px solid #EBEBEB;border-radius:10px;padding:12px 14px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">SJ</div>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;color:#111;">Sarah Johnson</div>
+                <div style="font-size:11px;color:#888;margin-top:1px;">sarah@acmecorp.com</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;background:#F0FFF4;border:1px solid #C3E6CB;border-radius:999px;padding:4px 10px;">
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 7L9 1" stroke="#27AE60" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-size:11px;font-weight:600;color:#27AE60;">Responded</span>
+              </div>
+            </div>
+            <!-- James - pending -->
+            <div style="display:flex;align-items:center;gap:12px;background:#F9F9F9;border:1px solid #EBEBEB;border-radius:10px;padding:12px 14px;opacity:.6;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#999;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">JK</div>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;color:#111;">James Kim</div>
+                <div style="font-size:11px;color:#888;margin-top:1px;">james.k@partner.io</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;background:#FFF8F0;border:1px solid #F5D5A8;border-radius:999px;padding:4px 10px;">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#E67E22" stroke-width="1.4"/><path d="M5 3v2.5" stroke="#E67E22" stroke-width="1.4" stroke-linecap="round"/><circle cx="5" cy="7" r=".5" fill="#E67E22"/></svg>
+                <span style="font-size:11px;font-weight:600;color:#E67E22;">Pending</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Your availability summary -->
+          <div style="background:#F9F9F9;border:1px solid #EBEBEB;border-radius:10px;padding:14px;">
+            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:10px;">Sarah's availability</div>
+            <div id="organizer-sarah-slots" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
+
+          <div style="font-size:11px;color:#aaa;text-align:center;margin-top:14px;">James will receive a reminder email in 24h</div>
+        </div>
+
+        <!-- Footer: disabled until all respond -->
+        <div style="padding:12px 24px 20px;border-top:1px solid #EBEBEB;background:#fff;flex-shrink:0;">
+          <button disabled style="width:100%;border:none;border-radius:999px;padding:12px;font-size:13px;font-weight:600;cursor:not-allowed;font-family:inherit;background:#111;color:#fff;opacity:.25;">Schedule instantly</button>
+          <div style="font-size:11px;color:#aaa;text-align:center;margin-top:8px;">Available once all participants respond</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1:1 BOOKING VIEW -->
+    <div class="bp-simple" id="booking-simple-view" style="display:none;">
+      <div class="bp-simple-header">
+        <div class="bp-org-row">
+          <div class="bp-avatar">DG</div>
+          <div><div class="bp-org-name">Dmytro Grinshpun</div><div class="bp-org-label">invites you to meet</div></div>
+          <div style="margin-left:auto;"><svg width="64" height="15" viewBox="31.98 63.91 100 23" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40.3843 63.9116H31.9819V86.4729H40.3843V86.5061C47.5899 86.5061 51.7586 81.3204 51.7586 75.2095C51.7586 69.0986 47.5581 63.9116 40.3843 63.9116ZM39.8987 82.1131H37.1192V68.3046H39.8987C44.293 68.3046 46.4264 71.6411 46.4264 75.2082C46.4264 78.7754 44.293 82.1118 39.8987 82.1118V82.1131Z" fill="#0A0A0A"/><path d="M78.7308 86.9419C83.3506 86.9419 87.0962 83.1964 87.0962 78.5765C87.0962 73.9567 83.3494 70.2112 78.7308 70.2112H78.7295C78.4339 70.2175 78.3281 70.2137H77.9445C77.8209 70.2188 77.5876 70.2328C77.3621 70.2519 77.0562 70.2889C76.8969 70.3131 76.6 70.3679C76.4432 70.401 76.1526 70.4775C75.834 70.5731 75.2299 70.791C74.5558 71.116C73.7758 71.5875C73.475 71.7927C73.0354 72.119C72.0719 72.8633 70.3616 74.6908C69.7155 75.3471C68.4538 72.3293 65.4729 70.2086 61.9975 70.2086C57.3776 70.2086 53.6321 73.9542 53.6321 78.574C53.6321 83.1938 57.3789 86.9394 61.9975 86.9394C62.9724 86.9292 63.5191 86.8833C64.4265 86.7151C65.0319 86.5316 65.845 86.2053C66.17 86.0345C66.6976 85.73C67.6904 85.0303C68.6538 84.286 70.3641 82.4585C71.0103 81.8021C72.2732 84.8187 75.2529 86.9381 78.7308 86.9381V86.9419ZM66.7792 78.4058C64.8051 80.4181 55.0097 81.4249 55.0097 78.5791C55.0097 74.5506 62.822 70.9886 69.5064 75.5676C68.5901 76.5145 67.6815 77.4844 66.7792 78.407V78.4058ZM71.2193 81.5906C73.9466 78.7511C75.9207 76.7363C81.9832 73.8739C84.2924 74.4104 85.716 75.7295 85.716 78.5753C85.716 82.6038 81.9335 86.1658 71.2193 81.588V81.5906Z" fill="#0A0A0A"/><path d="M101.152 73.1602H101.12C100.28 71.5748 98.5356 70.517 96.3053 70.517C91.8461 70.517 89.0347 74.0841 89.0347 78.7091C89.0347 83.4003 91.6842 86.9011 96.2735 86.9011C98.4056 86.9011 100.313 85.8434 101.153 84.2911V86.4717H106.001V63.9116H101.153V73.1602H101.152ZM97.6295 82.8064C95.3673 82.8064 93.9782 81.0553 93.9782 78.7104C93.9782 76.3654 95.3673 74.6474 97.6295 74.6474C100.053 74.6474 101.281 76.4967 101.281 78.7104C101.313 80.9572 100.052 82.8064 97.6295 82.8064Z" fill="#0A0A0A"/><path d="M113.367 63.9116H108.488V86.4729H113.367V63.9116Z" fill="#0A0A0A"/><path d="M124.127 86.8693C128.199 86.8693 131.301 84.8544 131.754 81.7817H126.971C126.55 82.7401 125.613 83.1696 124.094 83.1696C121.929 83.1696 120.605 82.08 120.508 80.0319H131.85C131.947 79.173 131.979 78.7104 131.979 77.8845C131.979 73.4915 128.747 70.4852 123.965 70.4852C119.184 70.4852 115.693 73.5897 115.693 78.6772C115.693 83.7648 118.925 86.8693 124.127 86.8693ZM123.902 73.8216C125.97 73.8216 127.101 74.9113 127.166 76.9924H120.509C120.541 75.0769 121.801 73.8216 123.902 73.8216Z" fill="#0A0A0A"/></svg></div>
+        </div>
+        <div class="bp-title">Q3 Partnership Kickoff</div>
+        <div class="bp-badges"><span class="bp-badge">30 min</span><span class="bp-badge">Video call</span></div>
+      </div>
+      <div class="bp-body" id="bp-body">
+        <div class="bp-section">Choose a time</div>
+        <div class="bp-slot selected" onclick="selectSlot(this,'Tue 10 Jun &middot; 2:00 - 2:30 PM')"><div class="bp-radio"><div class="bp-radio-dot"></div></div><div><div class="bp-slot-day">Tuesday, 10 June</div><div class="bp-slot-time">2:00 - 2:30 PM</div></div></div>
+        <div class="bp-slot" onclick="selectSlot(this,'Tue 10 Jun &middot; 4:00 - 4:30 PM')"><div class="bp-radio"><div class="bp-radio-dot"></div></div><div><div class="bp-slot-day">Tuesday, 10 June</div><div class="bp-slot-time">4:00 - 4:30 PM</div></div></div>
+        <div class="bp-slot" onclick="selectSlot(this,'Wed 11 Jun &middot; 10:00 - 10:30 AM')"><div class="bp-radio"><div class="bp-radio-dot"></div></div><div><div class="bp-slot-day">Wednesday, 11 June</div><div class="bp-slot-time">10:00 - 10:30 AM</div></div></div>
+        <div class="bp-slot" onclick="selectSlot(this,'Thu 12 Jun &middot; 3:00 - 3:30 PM')"><div class="bp-radio"><div class="bp-radio-dot"></div></div><div><div class="bp-slot-day">Thursday, 12 June</div><div class="bp-slot-time">3:00 - 3:30 PM</div></div></div>
+        <div class="bp-slot" onclick="selectSlot(this,'Fri 13 Jun &middot; 9:00 - 9:30 AM')"><div class="bp-radio"><div class="bp-radio-dot"></div></div><div><div class="bp-slot-day">Friday, 13 June</div><div class="bp-slot-time">9:00 - 9:30 AM</div></div></div>
+        <div class="bp-fields">
+          <div class="bp-field"><label>Your name</label><input placeholder="Sarah Johnson" oninput="updateBookingCta()" /></div>
+          <div class="bp-field"><label>Your email</label><input placeholder="sarah@acmecorp.com" oninput="updateBookingCta()" /></div>
+        </div>
+      </div>
+      <div id="bp-footer-wrap">
+        <div class="bp-footer">
+          <button class="bp-cta" id="bp-cta" onclick="confirmBooking()" disabled>Confirm time</button>
+          <div class="bp-powered">Powered by <strong style="color:#111;">Doodle</strong> &middot; No account needed</div>
+        </div>
+      </div>
+      <div class="bp-confirmed" id="bp-confirmed">
+        <div class="bp-confirmed-icon">&#10003;</div>
+        <div class="bp-confirmed-title">You're booked!</div>
+        <div class="bp-confirmed-sub">Dmytro will receive a confirmation. A calendar invite follows shortly.</div>
+        <div class="bp-confirmed-slot" id="bp-confirmed-slot">Tue 10 Jun &middot; 2:00 - 2:30 PM</div>
+        <div style="font-size:12px;color:#aaa;">Check your email for the calendar invite</div>
+      </div>
+    </div>
+  </div><!-- /doodle-main -->
+</div><!-- /booking-frame -->
+<script>
+var currentScreen='screen-auth',currentMode='booking',selectedSlotLabel='Tue 10 Jun &middot; 2:00 - 2:30 PM';
+var POLL_TIMES=['9:00','9:30','10:00','10:30','11:00','11:30','12:00','12:30','1:00','1:30','2:00','2:30','3:00','3:30','4:00','4:30','5:00','5:30'];
+var DAY_SHORT=['Mon','Tue','Wed','Thu','Fri'];
+var pollWeekOffset=0,pollSelected={},pgDragging=false,pgDragMode=null;
+var DAYS=[{name:'Sun',enabled:false},{name:'Mon',enabled:true},{name:'Tue',enabled:true},{name:'Wed',enabled:true},{name:'Thu',enabled:true},{name:'Fri',enabled:true},{name:'Sat',enabled:false}];
+var daySlots={0:[],1:[{start:'09:00',end:'17:00'}],2:[{start:'09:00',end:'17:00'}],3:[{start:'09:00',end:'17:00'}],4:[{start:'09:00',end:'17:00'}],5:[{start:'09:00',end:'17:00'}],6:[]};
+
+function openPane(){document.getElementById('taskpane').style.width='300px';}
+function closePane(){document.getElementById('taskpane').style.width='0';}
+function goTo(id){
+  var cur=document.getElementById(currentScreen),nxt=document.getElementById(id);
+  cur.classList.add('out');cur.classList.remove('active');
+  setTimeout(function(){cur.classList.remove('out');nxt.classList.add('active');currentScreen=id;},200);
+}
+function setMode(mode){
+  currentMode=mode;
+  var slider=document.getElementById('mode-slider'),bB=document.getElementById('btn-booking'),bP=document.getElementById('btn-poll');
+  var hint=document.getElementById('poll-hint'),btn=document.getElementById('insert-btn');
+  if(mode==='booking'){
+    slider.className='mode-slider booking';bB.className='mode-btn active';bP.className='mode-btn';
+    hint.classList.add('hidden');btn.textContent='Insert scheduling link';
+    document.getElementById('avail-booking').style.display='';
+    document.getElementById('avail-poll').style.display='none';
+    updateInsertBtn();
+  }else{
+    slider.className='mode-slider poll';bP.className='mode-btn active';bB.className='mode-btn';
+    hint.classList.remove('hidden');btn.textContent='Insert group poll link';
+    document.getElementById('avail-booking').style.display='none';
+    document.getElementById('avail-poll').style.display='';
+    buildPollGrid();updatePollInsertBtn();
+  }
+}
+function setDur(btn){document.querySelectorAll('.dur-btn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');}
+
+/* ---- Booking availability ---- */
+function buildDays(){
+  var container=document.getElementById('days-container');container.innerHTML='';
+  DAYS.forEach(function(day,di){
+    var row=document.createElement('div');row.className='day-row';
+    var hdr=document.createElement('div');hdr.className='day-header-row';
+    var cb=document.createElement('div');cb.className='day-cb'+(day.enabled?' checked':'');
+    cb.innerHTML='<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.8 7L9 1" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    cb.onclick=function(){toggleDay(di);};
+    var nm=document.createElement('span');nm.className='day-name';nm.textContent=day.name;
+    hdr.appendChild(cb);hdr.appendChild(nm);
+    if(!day.enabled){
+      var ua=document.createElement('span');ua.className='day-unavailable';ua.textContent='Unavailable';
+      var addB=document.createElement('button');addB.className='day-add';addB.textContent='+';
+      addB.onclick=function(){DAYS[di].enabled=true;daySlots[di]=[{start:'09:00',end:'17:00'}];buildDays();updateInsertBtn();};
+      hdr.appendChild(ua);hdr.appendChild(addB);
+    }else{
+      var addB2=document.createElement('button');addB2.className='day-add';addB2.style.marginLeft='auto';addB2.textContent='+';
+      addB2.onclick=function(){daySlots[di].push({start:'09:00',end:'17:00'});buildDays();};
+      hdr.appendChild(addB2);
+    }
+    row.appendChild(hdr);
+    if(day.enabled&&daySlots[di].length>0){
+      var sDiv=document.createElement('div');sDiv.className='day-slots';
+      daySlots[di].forEach(function(slot,si){
+        var range=document.createElement('div');range.className='time-range';
+        var s1=makeTI(slot.start,function(v){daySlots[di][si].start=v;});
+        var arr=document.createElement('span');arr.className='time-arrow';arr.innerHTML='&rarr;';
+        var s2=makeTI(slot.end,function(v){daySlots[di][si].end=v;});
+        range.appendChild(s1);range.appendChild(arr);range.appendChild(s2);sDiv.appendChild(range);
+      });
+      var acts=document.createElement('div');acts.className='slot-actions';
+      var pB=document.createElement('button');pB.className='slot-action-btn';
+      pB.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+      pB.onclick=function(){daySlots[di].push({start:'09:00',end:'17:00'});buildDays();};
+      var cB=document.createElement('button');cB.className='slot-action-btn';cB.title='Copy to all days';
+      cB.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M4 4V2.5A1.5 1.5 0 015.5 1h7A1.5 1.5 0 0114 2.5v7A1.5 1.5 0 0112.5 11H11" stroke="currentColor" stroke-width="1.4"/></svg>';
+      cB.onclick=function(){copyToAll(di);};
+      acts.appendChild(pB);acts.appendChild(cB);sDiv.appendChild(acts);row.appendChild(sDiv);
+    }
+    container.appendChild(row);
+  });
+}
+function makeTI(value,onChange){
+  var w=document.createElement('div');w.className='time-input';
+  w.innerHTML='<input type="time" value="'+value+'"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 4v2.5l1.5 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+  w.querySelector('input').addEventListener('change',function(e){onChange(e.target.value);});return w;
+}
+function toggleDay(di){DAYS[di].enabled=!DAYS[di].enabled;if(DAYS[di].enabled&&daySlots[di].length===0)daySlots[di]=[{start:'09:00',end:'17:00'}];buildDays();updateInsertBtn();}
+function copyToAll(fdi){DAYS.forEach(function(d,di){if(di!==fdi&&d.enabled)daySlots[di]=daySlots[fdi].map(function(s){return{start:s.start,end:s.end};});});buildDays();}
+function updateInsertBtn(){var has=DAYS.some(function(d,i){return d.enabled&&daySlots[i].length>0;});document.getElementById('insert-btn').disabled=!has;}
+
+/* ---- Poll grid ---- */
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function buildPollGrid(){
+  var grid=document.getElementById('poll-grid');grid.innerHTML='';
+  var base=new Date(2026,5,8);base.setDate(base.getDate()+pollWeekOffset*7);
+  document.getElementById('poll-cal-month').textContent=MONTHS[base.getMonth()]+' '+base.getFullYear();
+  var corner=document.createElement('div');corner.className='pg-corner';grid.appendChild(corner);
+  for(var d=0;d<5;d++){
+    var date=new Date(base);date.setDate(base.getDate()+d);
+    var isToday=pollWeekOffset===0&&date.getDate()===4&&date.getMonth()===5;
+    var h=document.createElement('div');h.className='pg-day-hdr'+(isToday?' today':'');
+    h.innerHTML='<div>'+DAY_SHORT[d]+'</div><div class="pg-date">'+date.getDate()+'</div>';grid.appendChild(h);
+  }
+  POLL_TIMES.forEach(function(t,ti){
+    var isHour=ti%2===0;
+    var lbl=document.createElement('div');lbl.className='pg-time'+(isHour?' hour':'');
+    if(isHour)lbl.textContent=t;grid.appendChild(lbl);
+    for(var d=0;d<5;d++){
+      var key=pollWeekOffset+'_'+d+'_'+ti;
+      var cell=document.createElement('div');
+      cell.className='pg-cell'+(isHour?' hour-border':'')+(pollSelected[key]?' selected':'');
+      cell.dataset.key=key;
+      (function(k){
+        cell.addEventListener('mousedown',function(e){e.preventDefault();pgDragging=true;pgDragMode=pollSelected[k]?'del':'add';pgApply(k);});
+        cell.addEventListener('mouseover',function(){if(pgDragging)pgApply(k);});
+      })(key);
+      grid.appendChild(cell);
+    }
+  });
+  updatePollInsertBtn();
+}
+function pgApply(key){
+  if(pgDragMode==='add')pollSelected[key]=true;else delete pollSelected[key];
+  var el=document.querySelector('[data-key="'+key+'"]');
+  if(el){el.className=el.className.replace(' selected','');if(pollSelected[key])el.className+=' selected';}
+  updatePollInsertBtn();
+}
+document.addEventListener('mouseup',function(){pgDragging=false;});
+function prevWeek(){pollWeekOffset--;buildPollGrid();}
+function nextWeek(){pollWeekOffset++;buildPollGrid();}
+function updatePollInsertBtn(){
+  var n=Object.keys(pollSelected).length;
+  var hint=document.getElementById('poll-cal-hint');
+  hint.innerHTML=n===0?'Click and drag to select times':'<strong>'+n+' slot'+(n!==1?'s':'')+'</strong> selected';
+  document.getElementById('insert-btn').disabled=n===0;
+}
+
+/* ---- Insert flow ---- */
+function insertLink(){
+  var isPoll=currentMode==='poll';
+  document.getElementById('gen-title').textContent=isPoll?'Creating group poll...':'Creating your link...';
+  goTo('screen-generating');
+  setTimeout(function(){injectEmail(isPoll);updateDone(isPoll);goTo('screen-done');showPanel(isPoll);},1600);
+}
+function injectEmail(isPoll){
+  var body=document.getElementById('email-body');
+  var old=body.querySelector('.il');if(old)old.remove();
+  var el=document.createElement('div');el.className='il';
+  el.style.cssText='margin-top:14px;padding:11px 14px;background:#F3F3F1;border-left:3px solid #111;border-radius:4px;';
+  el.innerHTML='<a href="#" style="color:#111;font-weight:700;font-size:13px;text-decoration:none;">'+(isPoll?'Vote on a meeting time':'Pick a time to meet')+' &mdash; click here</a><div style="font-size:11px;color:#aaa;margin-top:3px;">Powered by Doodle &middot; No account needed &middot; Expires in 7 days</div>';
+  body.appendChild(el);
+}
+function updateDone(isPoll){
+  document.getElementById('done-title').textContent=isPoll?'Poll link added to email':'Link added to your email';
+  document.getElementById('done-sub').textContent=isPoll?'Everyone votes. You confirm the winner.':'Sarah and James can pick a time.';
+  document.getElementById('done-link').textContent=isPoll?'doodle.com/poll/dmytro/q3-kickoff':'doodle.com/bp/dmytro/q3-kickoff';
+}
+function showPanel(isPoll){
+  document.getElementById('booking-frame').classList.add('visible');
+  document.getElementById('poll-participant-view').style.display='none';
+  document.getElementById('booking-simple-view').style.display='none';
+  if(isPoll){
+    document.getElementById('poll-participant-view').style.display='flex';
+    buildPollVoteSlots();
+    document.getElementById('poll-vote-confirmed').style.display='none';
+    document.getElementById('poll-vote-body').style.display='';
+    document.getElementById('poll-vote-footer').style.display='';
+  }else{
+    document.getElementById('booking-simple-view').style.display='flex';
+    document.getElementById('bp-confirmed').classList.remove('visible');
+    document.getElementById('bp-footer-wrap').style.display='';
+    document.getElementById('bp-body').style.display='';
+    document.querySelector('.bp-simple-header').style.display='';
+  }
+}
+
+/* ---- Poll participant voting ---- */
+var POLL_VOTE_SLOTS=[
+  {id:'s1',day:'Tuesday, 10 June',time:'2:00 - 2:30 PM'},
+  {id:'s2',day:'Tuesday, 10 June',time:'4:00 - 4:30 PM'},
+  {id:'s3',day:'Wednesday, 11 June',time:'10:00 - 10:30 AM'},
+  {id:'s4',day:'Thursday, 12 June',time:'3:00 - 3:30 PM'},
+  {id:'s5',day:'Friday, 13 June',time:'9:00 - 9:30 AM'}
+];
+var pvSelected={};
+function buildPollVoteSlots(){
+  pvSelected={};
+  var list=document.getElementById('poll-slots-list');list.innerHTML='';
+  POLL_VOTE_SLOTS.forEach(function(s){
+    var card=document.createElement('div');
+    card.style.cssText='background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:13px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s,box-shadow .15s;';
+    card.dataset.id=s.id;
+    var chk=document.createElement('div');
+    chk.style.cssText='width:20px;height:20px;border-radius:6px;border:1.5px solid #DFDFDF;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;font-size:12px;font-weight:700;color:transparent;';
+    var info=document.createElement('div');
+    info.innerHTML='<div style="font-size:14px;font-weight:600;color:#111;">'+s.day+'</div><div style="font-size:12px;color:#888;margin-top:2px;">'+s.time+'</div>';
+    card.appendChild(chk);card.appendChild(info);
+    card.addEventListener('click',function(){
+      if(pvSelected[s.id]){delete pvSelected[s.id];card.style.borderColor='#EBEBEB';card.style.boxShadow='none';chk.style.background='transparent';chk.style.borderColor='#DFDFDF';chk.style.color='transparent';}
+      else{pvSelected[s.id]=true;card.style.borderColor='#111';card.style.boxShadow='0 1px 4px rgba(0,0,0,.08)';chk.style.background='#111';chk.style.borderColor='#111';chk.style.color='#fff';}
+      chk.textContent=pvSelected[s.id]?'&#10003;':'';chk.innerHTML=pvSelected[s.id]?'&#10003;':'';
+      updatePollVoteCta();
+    });
+    list.appendChild(card);
+  });
+}
+function updatePollVoteCta(){
+  var name=document.getElementById('pv-name').value.trim();
+  var email=document.getElementById('pv-email').value.trim();
+  var hasSel=Object.keys(pvSelected).length>0;
+  var btn=document.getElementById('pv-cta');
+  btn.disabled=!(name&&email&&hasSel);
+  btn.style.opacity=!(name&&email&&hasSel)?'.3':'1';
+  btn.style.cursor=!(name&&email&&hasSel)?'not-allowed':'pointer';
+}
+function submitPollVote(){
+  var selected=POLL_VOTE_SLOTS.filter(function(s){return pvSelected[s.id];});
+  var html=selected.map(function(s){return '<div style="margin-bottom:4px;">'+s.day+' &middot; '+s.time+'</div>';}).join('');
+  document.getElementById('pv-confirmed-slots').innerHTML=html;
+  // Show participant thank-you
+  document.getElementById('poll-vote-body').style.display='none';
+  document.getElementById('poll-vote-footer').style.display='none';
+  document.getElementById('poll-vote-confirmed').style.display='flex';
+  // After 1.4s: transition TASK PANE to screen-waiting (organizer sees progress inside plugin)
+  setTimeout(function(){
+    document.getElementById('poll-vote-confirmed').style.display='none';
+    // Populate Sarah's slots in the pane
+    var paneSlots=document.getElementById('pane-sarah-slots');
+    paneSlots.innerHTML=selected.map(function(s){
+      return '<div style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:#F9F9F9;border:1px solid #EBEBEB;border-radius:8px;">'
+        +'<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#27AE60" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        +'<span style="font-size:11px;font-weight:500;color:#111;">'+s.day+' &middot; '+s.time+'</span></div>';
+    }).join('');
+    // Also update right panel
+    var sarahSlots=document.getElementById('organizer-sarah-slots');
+    if(sarahSlots) sarahSlots.innerHTML=paneSlots.innerHTML;
+    document.getElementById('organizer-waiting').style.display='flex';
+    // Switch task pane to waiting screen
+    goTo('screen-waiting');
+    // Animate progress bar after transition
+    setTimeout(function(){
+      document.getElementById('pane-resp-bar').style.width='50%';
+      document.getElementById('resp-bar').style.width='50%';
+    }, 300);
+  }, 1400);
+}
+
+/* ---- 1:1 Booking ---- */
+function selectSlot(el,label){
+  document.querySelectorAll('.bp-slot').forEach(function(s){s.classList.remove('selected');});
+  el.classList.add('selected');selectedSlotLabel=label;updateBookingCta();
+}
+function updateBookingCta(){
+  var bv=document.getElementById('booking-simple-view');
+  var inputs=bv.querySelectorAll('input');
+  var name=inputs[0]?inputs[0].value.trim():'',email=inputs[1]?inputs[1].value.trim():'';
+  document.getElementById('bp-cta').disabled=!(name&&email&&bv.querySelector('.bp-slot.selected'));
+}
+function confirmBooking(){
+  document.getElementById('bp-footer-wrap').style.display='none';
+  document.getElementById('bp-body').style.display='none';
+  document.querySelector('.bp-simple-header').style.display='none';
+  document.getElementById('bp-confirmed-slot').innerHTML=selectedSlotLabel;
+  document.getElementById('bp-confirmed').classList.add('visible');
+}
+
+buildDays();updateInsertBtn();
+</script>
+</body></html>
