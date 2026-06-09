@@ -321,17 +321,28 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#F0F0F0;display:fle
         <div>
           <div class="section-label">Meeting type</div>
           <div class="mode-toggle">
-            <div class="mode-slider booking" id="mode-slider"></div>
-            <button class="mode-btn active" id="btn-booking" onclick="setMode('booking')">1:1 Booking</button>
-            <button class="mode-btn" id="btn-poll" onclick="setMode('poll')">Group Poll <span class="mode-badge">2</span></button>
+            <div class="mode-slider poll" id="mode-slider"></div>
+            <button class="mode-btn" id="btn-booking" onclick="setMode('booking')">1:1 Booking</button>
+            <button class="mode-btn active" id="btn-poll" onclick="setMode('poll')">Group Poll <span class="mode-badge" id="poll-badge">2</span></button>
           </div>
-          <div class="mode-hint hidden" id="poll-hint" style="margin-top:8px;"><span>Everyone votes on their available times. You confirm the winner.</span></div>
+          <div class="mode-hint" id="poll-hint" style="margin-top:8px;"><span>Everyone votes on their available times. You confirm the winner.</span></div>
         </div>
         <div>
           <div class="section-label">Scheduling with</div>
-          <div class="recipient-chips">
-            <div class="chip"><div class="chip-avatar">SJ</div>Sarah Johnson</div>
-            <div class="chip"><div class="chip-avatar">JK</div>James Kim</div>
+          <!-- Booking: one person only -->
+          <div id="chips-booking" style="display:none;">
+            <div class="recipient-chips">
+              <div class="chip"><div class="chip-avatar">SJ</div>Sarah Johnson</div>
+            </div>
+            <div style="font-size:11px;color:#aaa;margin-top:6px;">1:1 booking is with one person. For multiple people use Group Poll.</div>
+          </div>
+          <!-- Poll: all + add more -->
+          <div id="chips-poll">
+            <div class="recipient-chips" id="poll-chips"></div>
+            <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+              <input id="add-participant-input" placeholder="Add email address..." style="flex:1;border:1px solid #E5E5E5;border-radius:999px;padding:7px 12px;font-size:12px;font-family:inherit;outline:none;color:#111;transition:border-color .15s;" onfocus="this.style.borderColor='#111'" onblur="this.style.borderColor='#E5E5E5'" onkeydown="if(event.key==='Enter')addParticipant()"/>
+              <button onclick="addParticipant()" style="background:#111;color:#fff;border:none;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">Add</button>
+            </div>
           </div>
         </div>
         <div>
@@ -344,7 +355,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#F0F0F0;display:fle
           </div>
         </div>
         <!-- BOOKING availability -->
-        <div id="avail-booking">
+        <div id="avail-booking" style="display:none;">
           <div class="avail-section">
             <div class="section-label">Your availability</div>
             <div class="dur-pills"><div class="dur-pill">30 min <span class="dur-pill-x">&times;</span></div></div>
@@ -354,7 +365,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#F0F0F0;display:fle
           </div>
         </div>
         <!-- POLL grid -->
-        <div id="avail-poll" style="display:none;">
+        <div id="avail-poll">
           <div class="poll-cal-header">
             <div class="section-label" style="margin-bottom:0;">Propose time slots</div>
             <div class="poll-cal-nav">
@@ -640,7 +651,8 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#F0F0F0;display:fle
   </div><!-- /doodle-main -->
 </div><!-- /booking-frame -->
 <script>
-var currentScreen='screen-auth',currentMode='booking',selectedSlotLabel='Tue 10 Jun &middot; 2:00 - 2:30 PM';
+var currentScreen='screen-auth',currentMode='poll',selectedSlotLabel='Tue 10 Jun &middot; 2:00 - 2:30 PM';
+var pollParticipants=[{initials:'SJ',name:'Sarah Johnson'},{initials:'JK',name:'James Kim'}];
 var POLL_TIMES=['9:00','9:30','10:00','10:30','11:00','11:30','12:00','12:30','1:00','1:30','2:00','2:30','3:00','3:30','4:00','4:30','5:00','5:30'];
 var DAY_SHORT=['Mon','Tue','Wed','Thu','Fri'];
 var pollWeekOffset=0,pollSelected={},pgDragging=false,pgDragMode=null;
@@ -663,14 +675,48 @@ function setMode(mode){
     hint.classList.add('hidden');btn.textContent='Insert scheduling link';
     document.getElementById('avail-booking').style.display='';
     document.getElementById('avail-poll').style.display='none';
+    document.getElementById('chips-booking').style.display='';
+    document.getElementById('chips-poll').style.display='none';
     updateInsertBtn();
   }else{
     slider.className='mode-slider poll';bP.className='mode-btn active';bB.className='mode-btn';
     hint.classList.remove('hidden');btn.textContent='Insert group poll link';
     document.getElementById('avail-booking').style.display='none';
     document.getElementById('avail-poll').style.display='';
+    document.getElementById('chips-booking').style.display='none';
+    document.getElementById('chips-poll').style.display='';
+    rebuildPollChips();
     buildPollGrid();updatePollInsertBtn();
   }
+}
+function addParticipant(){
+  var input=document.getElementById('add-participant-input');
+  var val=input.value.trim();
+  if(!val)return;
+  var parts=val.split('@')[0].replace(/[^a-zA-Z]/g,' ').trim().split(/\s+/);
+  var initials=(parts[0]?parts[0][0]:'')+(parts[1]?parts[1][0]:parts[0]?parts[0][1]||'':'');
+  pollParticipants.push({initials:initials.toUpperCase()||val.slice(0,2).toUpperCase(),name:val});
+  input.value='';rebuildPollChips();
+}
+function rebuildPollChips(){
+  var container=document.getElementById('poll-chips');
+  container.innerHTML='';
+  pollParticipants.forEach(function(p,i){
+    var chip=document.createElement('div');chip.className='chip';
+    var av=document.createElement('div');av.className='chip-avatar';av.textContent=p.initials;
+    chip.appendChild(av);
+    var nm=document.createElement('span');nm.textContent=p.name;chip.appendChild(nm);
+    if(i>=2){
+      var rm=document.createElement('span');
+      rm.innerHTML='&times;';
+      rm.style.cssText='cursor:pointer;color:#bbb;font-size:15px;line-height:1;margin-left:4px;';
+      rm.onclick=function(e){e.stopPropagation();pollParticipants.splice(i,1);rebuildPollChips();};
+      chip.appendChild(rm);
+    }
+    container.appendChild(chip);
+  });
+  var badge=document.getElementById('poll-badge');
+  if(badge)badge.textContent=pollParticipants.length;
 }
 function setDur(btn){document.querySelectorAll('.dur-btn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');}
 
@@ -902,6 +948,6 @@ function confirmBooking(){
   document.getElementById('bp-confirmed').classList.add('visible');
 }
 
-buildDays();updateInsertBtn();
+buildDays();setMode('poll');
 </script>
 </body></html>
